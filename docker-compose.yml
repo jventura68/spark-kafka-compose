@@ -1,0 +1,59 @@
+version: '3.2'
+
+services:
+  spark:
+    command: start-notebook.sh --NotebookApp.token=''
+    container_name: spark
+    image: jventuraroda/spark-course:latest
+    user: root
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      GRANT_SUDO: "yes"
+    ports:
+    - "8888:8888"
+    volumes:
+    - f:/spark-course/home:/home/jovyan
+    
+  # https://github.com/wurstmeister/zookeeper-docker
+  zookeeper:
+    container_name: zookeeper
+    image: wurstmeister/zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+    - "2181:2181"
+
+  # https://hub.docker.com/r/wurstmeister/kafka/
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka:latest
+    environment:
+      ## the >- used below infers a value which is a string and properly 
+      ## ignore the multiple lines resulting in one long string: 
+      ## https://yaml.org/spec/1.2/spec.html
+      KAFKA_ADVERTISED_LISTENERS: >- 
+        LISTENER_DOCKER_INTERNAL://kafka:19092, 
+        LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-kafka}:9092
+
+      KAFKA_LISTENERS: >-
+        LISTENER_DOCKER_INTERNAL://:19092,
+        LISTENER_DOCKER_EXTERNAL://:9092
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >- 
+        LISTENER_DOCKER_INTERNAL:PLAINTEXT,
+        LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG4J_LOGGERS: >- 
+        kafka.controller=WARN,
+        kafka.producer.async.DefaultEventHandler=WARN,
+        state.change.logger=WARN
+
+    ports:
+    - 9092:9092
+    depends_on:
+    - zookeeper
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
